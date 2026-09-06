@@ -1,12 +1,11 @@
-import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import Review from "../models/Review.js";
-import Reward from "../models/Reward.js";
-import User from "../models/User.js";
-import { AppError } from "../utils/appError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { fileToCloudinaryAsset } from "../utils/mediaAssets.js";
+import { deleteCloudinaryAsset } from "../utils/cloudinaryCleanup.js";
 import { createNotification } from "../services/notification.service.js";
+import { createEligibleReview } from "../services/review-reward.service.js";
+import { validateReviewInput } from "../validators/review.validator.js";
 
 const updateProductRating = async (productId) => {
   const reviews = await Review.find({ product: productId });
@@ -22,59 +21,40 @@ const updateProductRating = async (productId) => {
 };
 
 export const createReview = asyncHandler(async (req, res) => {
-  const rating = Number(req.body.rating);
-  const productId = req.body.productId;
-  const orderId = req.body.orderId;
-  const reviewText = String(req.body.reviewText || "").trim();
-
-  if (!rating || rating < 1 || rating > 5) {
-    throw new AppError("Rating from 1 to 5 is required.", 400);
-  }
-
-  if (!productId || !orderId) {
-    throw new AppError("Product and order are required.", 400);
-  }
-
-  const order = await Order.findOne({ _id: orderId, user: req.user._id, "items.product": productId });
-
-  if (!order) {
-    throw new AppError("Only purchased products can be reviewed.", 403);
-  }
-
   const images = (req.files || []).map(fileToCloudinaryAsset);
-  const review = await Review.create({
-    user: req.user._id,
-    product: productId,
-    order: orderId,
-    rating,
-    reviewText,
-    images,
-    isVerifiedPurchase: true
-  });
+  let payload;
+  let result;
+  try {
+    payload = validateReviewInput(req.body);
+    result = await createEligibleReview({ userId: req.user._id, payload, images });
+  } catch (error) {
+    await Promise.allSettled(images.map((image) => deleteCloudinaryAsset(image.publicId, "image")));
+    throw error;
+  }
 
-  if (reviewText) {
-    await Reward.create({
+  const secondaryResults = await Promise.allSettled([
+    updateProductRating(payload.productId),
+    createNotification({
       user: req.user._id,
-      type: "REVIEW",
-      amount: 10,
-      status: "Approved",
-      review: review._id,
-      creditedAt: new Date()
-    });
-    await User.findByIdAndUpdate(req.user._id, { $inc: { walletBalance: 10 } });
-    await createNotification({
-      user: req.user._id,
-      title: "Review reward added",
-      message: "Your Cantley review was approved and Rs. 10 was added to your wallet.",
+      title: result.rewardGranted ? "Review reward added" : "Review submitted",
+      message: result.rewardGranted ? "Your review earned Rs. 10 in wallet credit." : "Your Cantley review was submitted.",
       type: "REVIEW",
       link: "/reviews"
-    });
+    })
+  ]);
+  secondaryResults.forEach((secondaryResult, index) => {
+    if (secondaryResult.status === "rejected") {
+      const operation = index === 0 ? "Product rating recalculation" : "Review notification";
+      console.error(`${operation} failed after review commit:`, secondaryResult.reason?.message || secondaryResult.reason);
+    }
+  });
+  try {
+    await result.review.populate("user", "name");
+  } catch (error) {
+    console.error("Review user population failed after commit:", error.message);
   }
 
-  await updateProductRating(productId);
-  await review.populate("user", "name");
-
-  res.status(201).json({ success: true, review });
+  res.status(201).json({ success: true, ...result });
 });
 
 export const getProductReviews = asyncHandler(async (req, res) => {

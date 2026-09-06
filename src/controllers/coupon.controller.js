@@ -17,8 +17,13 @@ export const validateCoupon = asyncHandler(async (req, res) => {
   }
 
   const pricing = await calculateCartPricing(cart, code);
-  cart.appliedCouponCode = pricing.appliedCoupon?.code || "";
-  await cart.save();
+  const appliedCouponCode = pricing.appliedCoupon?.code || "";
+  if (cart.appliedCouponCode !== appliedCouponCode) {
+    cart.appliedCouponCode = appliedCouponCode;
+    const currentVersion = Number.isInteger(cart.version) && cart.version >= 1 ? cart.version : 1;
+    cart.version = currentVersion + 1;
+    await cart.save();
+  }
 
   res.status(200).json({
     success: true,

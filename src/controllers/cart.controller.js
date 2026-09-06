@@ -32,6 +32,11 @@ const calculateItemPrice = (product, variant) => {
   return Number(product.basePrice || 0) + Number(variant?.priceModifier || 0);
 };
 
+const incrementCartVersion = (cart) => {
+  const currentVersion = Number.isInteger(cart.version) && cart.version >= 1 ? cart.version : 1;
+  cart.version = currentVersion + 1;
+};
+
 const formatCart = async (cart) => {
   const items = cart.items.filter((item) => item.product);
   let pricing;
@@ -40,12 +45,14 @@ const formatCart = async (cart) => {
     pricing = await calculateCartPricing({ ...cart.toObject(), items }, cart.appliedCouponCode);
   } catch (error) {
     cart.appliedCouponCode = "";
+    incrementCartVersion(cart);
     await cart.save();
     pricing = await calculateCartPricing({ ...cart.toObject(), items }, "");
   }
 
   return {
     id: cart._id.toString(),
+    version: cart.version,
     items,
     appliedCouponCode: cart.appliedCouponCode || "",
     itemCount: pricing.itemCount,
@@ -115,6 +122,7 @@ export const addCartItem = asyncHandler(async (req, res) => {
     });
   }
 
+  incrementCartVersion(cart);
   await cart.save();
   await cart.populate("items.product", "name slug images basePrice isActive");
 
@@ -142,7 +150,10 @@ export const updateCartItem = asyncHandler(async (req, res) => {
     throw new AppError("Selected variant does not have enough stock.", 400);
   }
 
-  item.quantity = quantity;
+  if (item.quantity !== quantity) {
+    item.quantity = quantity;
+    incrementCartVersion(cart);
+  }
   await cart.save();
   await cart.populate("items.product", "name slug images basePrice isActive");
 
@@ -161,6 +172,7 @@ export const removeCartItem = asyncHandler(async (req, res) => {
   }
 
   item.deleteOne();
+  incrementCartVersion(cart);
   await cart.save();
   await cart.populate("items.product", "name slug images basePrice isActive");
 
@@ -172,9 +184,14 @@ export const removeCartItem = asyncHandler(async (req, res) => {
 
 export const clearCart = asyncHandler(async (req, res) => {
   const cart = await getOrCreateCart(req.user._id);
-  cart.items = [];
-  cart.appliedCouponCode = "";
-  await cart.save();
+  const hasCartState = cart.items.length > 0 || Boolean(cart.appliedCouponCode);
+
+  if (hasCartState) {
+    cart.items = [];
+    cart.appliedCouponCode = "";
+    incrementCartVersion(cart);
+    await cart.save();
+  }
 
   res.status(200).json({
     success: true,

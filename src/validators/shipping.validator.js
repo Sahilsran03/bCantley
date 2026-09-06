@@ -31,17 +31,17 @@ export const validateOrderShippingInput = (body) => ({
   trackingNumber: text(body.trackingNumber),
   courierName: text(body.courierName),
   estimatedDeliveryDate: body.estimatedDeliveryDate ? new Date(body.estimatedDeliveryDate) : null,
-  shippedAt: body.shippedAt ? new Date(body.shippedAt) : null,
-  deliveredAt: body.deliveredAt ? new Date(body.deliveredAt) : null,
   shippingNotes: text(body.shippingNotes)
 });
 
 export const validateTrackingUpdateInput = (body) => {
-  const status = text(body.status);
-  if (!status) throw new AppError("Tracking status is required.", 400);
+  if (body.status !== undefined) {
+    throw new AppError("Tracking status is controlled by the Order status.", 400);
+  }
+  const message = text(body.message);
+  if (!message) throw new AppError("Tracking note is required.", 400);
   return {
-    status,
-    message: text(body.message),
-    timestamp: body.timestamp ? new Date(body.timestamp) : new Date()
+    message,
+    timestamp: new Date()
   };
 };

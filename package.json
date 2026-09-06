@@ -8,7 +8,18 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "seed:categories": "node src/scripts/seedCategories.js",
-    "check": "node src/scripts/checkSyntax.js"
+    "check": "node src/scripts/checkSyntax.js",
+    "test:reviews": "node src/scripts/testReviewSecurity.js",
+    "test:order-tracking": "node src/scripts/testOrderTrackingStatus.js",
+    "test:cod-messaging": "node src/scripts/testCodCustomerMessaging.js",
+    "test:financial-analytics": "node src/scripts/testFinancialAnalytics.js",
+    "test:returns-refunds": "node src/scripts/testReturnsRefunds.js",
+    "audit:order-tracking": "node src/scripts/auditOrderTrackingStatuses.js",
+    "audit:cod-content": "node src/scripts/auditCodCustomerContent.js",
+    "audit:order-financials": "node src/scripts/auditOrderFinancials.js",
+    "audit:review-rewards": "node src/scripts/auditReviewRewards.js",
+    "audit:returns-refunds": "node src/scripts/auditReturnsRefunds.js",
+    "migrate:review-reward-index": "node src/scripts/migrateReviewRewardUniqueIndex.js"
   },
   "keywords": [
     "cantley",
@@ -30,7 +41,8 @@
     "morgan": "^1.10.0",
     "multer": "^2.1.1",
     "multer-storage-cloudinary": "^4.0.0",
-    "nodemailer": "^8.0.7"
+    "nodemailer": "^8.0.7",
+    "razorpay": "^2.9.8"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
@@ -39,5 +51,3 @@
     "node": ">=20"
   }
 }
-
-

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  googleLogin,
   forgotPassword,
   getProfile,
   login,
@@ -21,6 +22,7 @@ router.post("/register", register);
 router.post("/verify-otp", verifyOtp);
 router.post("/resend-otp", resendOtp);
 router.post("/login", login);
+router.post("/google", googleLogin);
 router.post("/verify-admin-2fa", verifyAdminTwoFactor);
 router.post("/resend-admin-2fa", resendAdminTwoFactor);
 router.post("/forgot-password", forgotPassword);

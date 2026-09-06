@@ -2,6 +2,7 @@ import ShippingZone from "../models/ShippingZone.js";
 import { AppError } from "../utils/appError.js";
 
 const text = (value) => String(value || "").trim();
+const useSession = (query, session) => session && typeof query?.session === "function" ? query.session(session) : query;
 
 export const getEstimatedDeliveryDate = (estimatedDays = 5) => {
   const date = new Date();
@@ -9,7 +10,7 @@ export const getEstimatedDeliveryDate = (estimatedDays = 5) => {
   return date;
 };
 
-export const checkShippingByPostalCode = async (postalCode, country = "India") => {
+export const checkShippingByPostalCode = async (postalCode, country = "India", { session = null } = {}) => {
   const cleanPostalCode = text(postalCode);
   const cleanCountry = text(country) || "India";
 
@@ -29,7 +30,7 @@ export const checkShippingByPostalCode = async (postalCode, country = "India") =
     };
   }
 
-  const zone = await ShippingZone.findOne({ country: /^india$/i, postalCode: cleanPostalCode });
+  const zone = await useSession(ShippingZone.findOne({ country: /^india$/i, postalCode: cleanPostalCode }), session);
 
   if (!zone) {
     return {

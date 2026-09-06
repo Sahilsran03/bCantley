@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { authenticateGoogle } from "../services/googleAuth.service.js";
 import crypto from "node:crypto";
 import PendingUser from "../models/PendingUser.js";
 import User from "../models/User.js";
@@ -195,7 +196,7 @@ export const login = asyncHandler(async (req, res) => {
   const user = await User.findOne({ email }).select("+password +refreshToken");
 
   if (!user || !(await user.comparePassword(password))) {
-    throw new AppError("Invalid email or password.", 401);
+    throw new AppError("Invalid password.", 401);
   }
 
   if (!user.isVerified) {
@@ -391,4 +392,9 @@ export const updateProfile = asyncHandler(async (req, res) => {
     success: true,
     user: sanitizeUser(req.user)
   });
+});
+
+export const googleLogin = asyncHandler(async (req, res) => {
+  const { user, created } = await authenticateGoogle(req.body);
+  await issueAuthResponse(res, user, created ? 201 : 200);
 });

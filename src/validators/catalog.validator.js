@@ -167,6 +167,13 @@ export const validateProductInput = (body, partial = false, options = {}) => {
       throw new AppError("Base price must be zero or greater.", 400);
     }
   }
+  if (!partial || body.codAvailable !== undefined) payload.codAvailable = boolean(body.codAvailable, true);
+  if (!partial || body.codAdvanceAmount !== undefined) {
+    payload.codAdvanceAmount = body.codAdvanceAmount === undefined ? 0 : number(body.codAdvanceAmount, -1);
+    if (payload.codAdvanceAmount < 0) {
+      throw new AppError("COD advance amount must be zero or greater.", 400);
+    }
+  }
   if (!partial || body.isActive !== undefined) payload.isActive = boolean(body.isActive, true);
   if (!partial || body.isFeatured !== undefined) payload.isFeatured = boolean(body.isFeatured, false);
   if (!partial || body.tags !== undefined) payload.tags = array(body.tags).map(text).filter(Boolean);

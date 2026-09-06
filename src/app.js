@@ -33,6 +33,7 @@ import { verifyAccessToken } from "./services/token.service.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import wishlistRoutes from "./routes/wishlist.routes.js";
+import webhookRoutes, { razorpayWebhookRawBody } from "./routes/webhook.routes.js";
 
 const app = express();
 
@@ -82,10 +83,11 @@ const authLimiter = buildRateLimiter({
 app.use(helmet());
 app.use(
   cors({
-    origin: env.clientUrl,
+    origin: [env.clientUrl, "http://172.20.10.4:5173"],
     credentials: true
   })
 );
+app.use("/api/webhooks", razorpayWebhookRawBody, webhookRoutes);
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan(env.nodeEnv === "production" ? "combined" : "dev"));
@@ -102,7 +104,8 @@ app.use("/api/lookbook", lookbookRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/designs", designRoutes);
-app.use("/api/offers", offerRoutes);
+app.use("/api/offers", offerRoutes);    
+
 app.use("/api/orders", orderRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/pages", pageRoutes);

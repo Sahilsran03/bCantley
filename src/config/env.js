@@ -24,5 +24,8 @@ export const env = {
   smtpSecure: process.env.SMTP_SECURE === "true",
   smtpUser: process.env.SMTP_USER,
   smtpPass: process.env.SMTP_PASS,
-  smtpFrom: process.env.SMTP_FROM || process.env.SMTP_USER || "Cantley <no-reply@cantley.com>"
+  smtpFrom: process.env.SMTP_FROM || process.env.SMTP_USER || "Cantley <no-reply@cantley.com>",
+  razorpayKeyId: process.env.RAZORPAY_KEY_ID || "",
+  razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET || "",
+  razorpayWebhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || ""
 };

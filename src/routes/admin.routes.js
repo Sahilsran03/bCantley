@@ -64,10 +64,10 @@ import {
   updateOffer
 } from "../controllers/offer.controller.js";
 import {
+  collectAdminCodPayment,
   getAdminOrderById,
   listAdminOrders,
-  updateAdminOrderStatus,
-  updateAdminPaymentStatus
+  updateAdminOrderStatus
 } from "../controllers/order.controller.js";
 import {
   createProduct,
@@ -87,6 +87,8 @@ import { listAdminRewards, updateRewardStatus } from "../controllers/reward.cont
 import {
   getAdminReturnRequestById,
   listAdminReturnRequests,
+  createReturnRefund,
+  receiveReturnRequest,
   updateReturnRefundStatus,
   updateReturnRequestStatus
 } from "../controllers/return.controller.js";
@@ -160,7 +162,7 @@ router.patch("/products/:id/toggle-active", toggleProductActive);
 router.get("/orders", listAdminOrders);
 router.get("/orders/:id", getAdminOrderById);
 router.put("/orders/:id/status", updateAdminOrderStatus);
-router.put("/orders/:id/payment-status", updateAdminPaymentStatus);
+router.patch("/orders/:id/cod-collection", collectAdminCodPayment);
 router.put("/orders/:id/shipping", updateOrderShipping);
 router.put("/orders/:id/tracking-update", addTrackingUpdate);
 
@@ -172,6 +174,8 @@ router.get("/returns", listAdminReturnRequests);
 router.get("/returns/:id", getAdminReturnRequestById);
 router.put("/returns/:id/status", updateReturnRequestStatus);
 router.put("/returns/:id/refund-status", updateReturnRefundStatus);
+router.post("/returns/:id/receive", receiveReturnRequest);
+router.post("/returns/:id/refunds", createReturnRefund);
 router.get("/rewards", listAdminRewards);
 router.put("/rewards/:id/status", updateRewardStatus);
 router.get("/designs", listAdminDesigns);

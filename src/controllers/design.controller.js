@@ -203,6 +203,8 @@ export const addDesignToCart = asyncHandler(async (req, res) => {
 
   design.status = design.status === "Draft" ? "Submitted" : design.status;
   design.lastEditedAt = new Date();
+  const currentCartVersion = Number.isInteger(cart.version) && cart.version >= 1 ? cart.version : 1;
+  cart.version = currentCartVersion + 1;
   await Promise.all([cart.save(), design.save()]);
   await cart.populate("items.product", "name slug images basePrice isActive");
 

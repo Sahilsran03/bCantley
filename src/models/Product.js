@@ -72,6 +72,15 @@ const productSchema = new mongoose.Schema(
       required: true,
       min: 0
     },
+    codAvailable: {
+      type: Boolean,
+      default: true
+    },
+    codAdvanceAmount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
     isActive: {
       type: Boolean,
       default: true

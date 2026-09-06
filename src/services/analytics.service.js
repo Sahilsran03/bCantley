@@ -33,48 +33,48 @@ export const orderDateMatch = (range) => ({
 export const groupSalesByDate = async (range, unit = "day") => {
   const format = unit === "year" ? "%Y" : unit === "month" ? "%Y-%m" : unit === "week" ? "%G-W%V" : "%Y-%m-%d";
   return Order.aggregate([
-    { $match: orderDateMatch(range) },
+    { $match: { ...orderDateMatch(range), orderStatus: { $ne: "Cancelled" } } },
     {
       $group: {
         _id: { $dateToString: { date: "$createdAt", format } },
-        revenue: { $sum: "$totalAmount" },
+        orderValue: { $sum: "$totalAmount" },
         orders: { $sum: 1 }
       }
     },
     { $sort: { _id: 1 } },
-    { $project: { _id: 0, label: "$_id", revenue: 1, orders: 1 } }
+    { $project: { _id: 0, label: "$_id", orderValue: 1, orders: 1 } }
   ]);
 };
 
 export const getTopSellingProducts = (range, limit = 8) =>
   Order.aggregate([
-    { $match: orderDateMatch(range) },
+    { $match: { ...orderDateMatch(range), orderStatus: { $ne: "Cancelled" } } },
     { $unwind: "$items" },
     {
       $group: {
         _id: "$items.product",
         name: { $first: "$items.name" },
         quantity: { $sum: "$items.quantity" },
-        revenue: { $sum: { $multiply: ["$items.finalPrice", "$items.quantity"] } }
+        orderValue: { $sum: { $multiply: ["$items.finalPrice", "$items.quantity"] } }
       }
     },
-    { $sort: { quantity: -1, revenue: -1 } },
+    { $sort: { quantity: -1, orderValue: -1 } },
     { $limit: limit }
   ]);
 
 export const getCategorySales = (range) =>
   Order.aggregate([
-    { $match: orderDateMatch(range) },
+    { $match: { ...orderDateMatch(range), orderStatus: { $ne: "Cancelled" } } },
     { $unwind: "$items" },
     {
       $group: {
         _id: "$items.productType",
-        revenue: { $sum: { $multiply: ["$items.finalPrice", "$items.quantity"] } },
+        orderValue: { $sum: { $multiply: ["$items.finalPrice", "$items.quantity"] } },
         quantity: { $sum: "$items.quantity" }
       }
     },
-    { $sort: { revenue: -1 } },
-    { $project: { _id: 0, category: "$_id", revenue: 1, quantity: 1 } }
+    { $sort: { orderValue: -1 } },
+    { $project: { _id: 0, category: "$_id", orderValue: 1, quantity: 1 } }
   ]);
 
 export const getLowStockProducts = (limit = 10) =>
@@ -103,11 +103,11 @@ export const getHighestRatedProducts = (limit = 8) =>
 
 export const getTopCustomers = (range, limit = 8) =>
   Order.aggregate([
-    { $match: orderDateMatch(range) },
-    { $group: { _id: "$user", orders: { $sum: 1 }, spent: { $sum: "$totalAmount" } } },
-    { $sort: { spent: -1, orders: -1 } },
+    { $match: { ...orderDateMatch(range), orderStatus: { $ne: "Cancelled" } } },
+    { $group: { _id: "$user", orders: { $sum: 1 }, orderValue: { $sum: "$totalAmount" } } },
+    { $sort: { orderValue: -1, orders: -1 } },
     { $limit: limit },
     { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "user" } },
     { $unwind: "$user" },
-    { $project: { _id: 1, orders: 1, spent: 1, name: "$user.name", email: "$user.email", loyaltyRank: "$user.loyaltyRank" } }
+    { $project: { _id: 1, orders: 1, orderValue: 1, name: "$user.name", email: "$user.email", loyaltyRank: "$user.loyaltyRank" } }
   ]);

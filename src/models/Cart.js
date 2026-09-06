@@ -56,6 +56,15 @@ const cartSchema = new mongoose.Schema(
       uppercase: true,
       trim: true,
       default: ""
+    },
+    version: {
+      type: Number,
+      min: 1,
+      validate: {
+        validator: Number.isInteger,
+        message: "Cart version must be an integer."
+      },
+      default: 1
     }
   },
   {

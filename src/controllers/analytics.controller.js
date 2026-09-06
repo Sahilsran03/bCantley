@@ -15,6 +15,7 @@ import {
   groupSalesByDate,
   orderDateMatch
 } from "../services/analytics.service.js";
+import { getMoneyReceivedByDate, getOrderFinancialMetrics, getReceiptMetrics } from "../services/financial-analytics.service.js";
 
 const sumField = async (Model, match, field) => {
   const [result] = await Model.aggregate([{ $match: match }, { $group: { _id: null, total: { $sum: `$${field}` } } }]);
@@ -25,7 +26,8 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
   const range = getDateRange(req.query);
   const match = orderDateMatch(range);
   const [
-    totalRevenue,
+    financials,
+    receipts,
     totalOrders,
     totalCustomers,
     totalProducts,
@@ -39,7 +41,8 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
     topProducts,
     rewardSummary
   ] = await Promise.all([
-    sumField(Order, match, "totalAmount"),
+    getOrderFinancialMetrics(range),
+    getReceiptMetrics(range),
     Order.countDocuments(match),
     User.countDocuments({ role: "customer" }),
     Product.countDocuments(),
@@ -51,13 +54,24 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
     sumField(Reward, { status: "Approved" }, "amount"),
     Order.find(match).populate("user", "name email").sort({ createdAt: -1 }).limit(6).lean(),
     getTopSellingProducts(range, 6),
-    Reward.aggregate([{ $group: { _id: "$type", amount: { $sum: "$amount" }, count: { $sum: 1 } } }, { $sort: { _id: 1 } }])
+    Reward.aggregate([{ $match: { status: "Approved" } }, { $group: { _id: "$type", amount: { $sum: "$amount" }, count: { $sum: 1 } } }, { $sort: { _id: 1 } }])
   ]);
 
   res.status(200).json({
     success: true,
     metrics: {
-      totalRevenue,
+      grossOrderValue: financials.grossOrderValue,
+      cancelledOrderValue: financials.cancelledOrderValue,
+      grossMoneyReceived: receipts.grossMoneyReceived,
+      onlineReceived: receipts.onlineReceived,
+      codCollected: receipts.codCollected,
+      walletReceived: receipts.walletReceived,
+      walletRefunded: receipts.walletRefunded,
+      netWalletReceived: receipts.netWalletReceived,
+      codOutstanding: financials.codOutstanding,
+      paidOrders: financials.paidOrders,
+      unpaidOrPartiallyPaidOrders: financials.unpaidOrPartiallyPaidOrders,
+      incompleteFinancialOrders: financials.incompleteFinancialOrders,
       totalOrders,
       totalCustomers,
       totalProducts,
@@ -77,15 +91,19 @@ export const getDashboardAnalytics = asyncHandler(async (req, res) => {
 
 export const getSalesAnalytics = asyncHandler(async (req, res) => {
   const range = getDateRange(req.query);
-  const [daily, weekly, monthly, yearly, categorySales] = await Promise.all([
+  const [daily, weekly, monthly, yearly, categorySales, receivedDaily, receivedWeekly, receivedMonthly, receivedYearly] = await Promise.all([
     groupSalesByDate(range, "day"),
     groupSalesByDate(range, "week"),
     groupSalesByDate(range, "month"),
     groupSalesByDate(range, "year"),
-    getCategorySales(range)
+    getCategorySales(range),
+    getMoneyReceivedByDate(range, "day"),
+    getMoneyReceivedByDate(range, "week"),
+    getMoneyReceivedByDate(range, "month"),
+    getMoneyReceivedByDate(range, "year")
   ]);
 
-  res.status(200).json({ success: true, daily, weekly, monthly, yearly, categorySales });
+  res.status(200).json({ success: true, daily, weekly, monthly, yearly, categorySales, receivedDaily, receivedWeekly, receivedMonthly, receivedYearly });
 });
 
 export const getProductAnalytics = asyncHandler(async (req, res) => {
@@ -129,7 +147,7 @@ export const getRewardAnalytics = asyncHandler(async (req, res) => {
   const range = getDateRange(req.query);
   const rewards = await Reward.aggregate([
     { $match: { createdAt: { $gte: range.from, $lte: range.to } } },
-    { $group: { _id: "$type", totalAmount: { $sum: "$amount" }, count: { $sum: 1 }, approved: { $sum: { $cond: [{ $eq: ["$status", "Approved"] }, 1, 0] } } } },
+    { $group: { _id: "$type", totalAmount: { $sum: { $cond: [{ $eq: ["$status", "Approved"] }, "$amount", 0] } }, count: { $sum: 1 }, approved: { $sum: { $cond: [{ $eq: ["$status", "Approved"] }, 1, 0] } } } },
     { $sort: { _id: 1 } }
   ]);
 

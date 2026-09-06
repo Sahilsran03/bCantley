@@ -1,5 +1,5 @@
 import Reward from "../models/Reward.js";
-import User from "../models/User.js";
+import { approveRewardStatus } from "../services/reward-approval.service.js";
 import { AppError } from "../utils/appError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { fileToCloudinaryAsset } from "../utils/mediaAssets.js";
@@ -55,22 +55,7 @@ export const updateRewardStatus = asyncHandler(async (req, res) => {
     throw new AppError("Invalid reward status.", 400);
   }
 
-  const reward = await Reward.findById(req.params.id);
-
-  if (!reward) {
-    throw new AppError("Reward not found.", 404);
-  }
-
-  const shouldCredit = status === "Approved" && reward.status !== "Approved" && !reward.creditedAt;
-  reward.status = status;
-  reward.adminNote = adminNote;
-
-  if (shouldCredit) {
-    await User.findByIdAndUpdate(reward.user, { $inc: { walletBalance: reward.amount } });
-    reward.creditedAt = new Date();
-  }
-
-  await reward.save();
+  const { reward, credited: shouldCredit } = await approveRewardStatus({ rewardId: req.params.id, status, adminNote });
   await reward.populate("user", "name email walletBalance");
   if (shouldCredit) {
     await createNotification({

@@ -14,7 +14,7 @@ const reviewSchema = new mongoose.Schema(
     product: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
     order: { type: mongoose.Schema.Types.ObjectId, ref: "Order", required: true },
     rating: { type: Number, required: true, min: 1, max: 5 },
-    reviewText: { type: String, trim: true, default: "" },
+    reviewText: { type: String, trim: true, default: "", maxlength: 1200 },
     images: { type: [mediaSchema], default: [] },
     isVerifiedPurchase: { type: Boolean, default: true }
   },

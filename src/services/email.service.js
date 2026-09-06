@@ -70,6 +70,7 @@ const buildTwoFactorEmail = (name, otp) => {
         <p>This code expires in 15 minutes. If you did not try to login, please secure your account.</p>
       </div>
     `
+    
   };
 };
 
@@ -86,10 +87,19 @@ const baseTemplate = ({ title, body, actionUrl = "", actionText = "" }) => ({
 });
 
 export const emailTemplates = {
-  orderConfirmation: ({ orderNumber }) =>
+  onlineOrderReserved: ({ orderNumber, totalAmount }) =>
+    baseTemplate({
+      title: "Your Cantley order is awaiting payment",
+      body: `Order ${orderNumber} is reserved for 20 minutes and remains unpaid. The online payment amount is Rs. ${Number(totalAmount).toLocaleString("en-IN")}.`
+    }),
+  orderConfirmation: ({ paymentMethod, orderNumber, onlineAdvanceRequired, onlineAmountPaid, paymentStatus, remainingCodDue }) =>
     baseTemplate({
       title: "Your Cantley order is confirmed",
-      body: `Order ${orderNumber} has been placed. Our team will contact you for advance confirmation before processing.`
+      body: paymentMethod === "WALLET"
+        ? `Order ${orderNumber} has been placed. Payment method: Wallet. Payment status: Paid.`
+        : Number(onlineAdvanceRequired || 0) > Number(onlineAmountPaid || 0) && paymentStatus !== "Paid"
+        ? `Order ${orderNumber} has been placed. A secure online advance of Rs. ${Number(onlineAdvanceRequired).toLocaleString("en-IN")} is required through the Cantley payment page.`
+        : `Order ${orderNumber} has been placed. Rs. ${Number(remainingCodDue || 0).toLocaleString("en-IN")} is payable on delivery.`
     }),
   shippingUpdate: ({ orderNumber, status }) =>
     baseTemplate({

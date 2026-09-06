@@ -15,10 +15,20 @@ const orderItemSchema = new mongoose.Schema(
     material: { type: String, trim: true, default: "" },
     printType: { type: String, trim: true, default: "" },
     finish: { type: String, trim: true, default: "" },
+    shape: { type: String, trim: true, default: "" },
+    width: { type: Number, default: null, min: 0 },
+    height: { type: Number, default: null, min: 0 },
+    unit: { type: String, trim: true, default: "" },
+    waterproof: { type: Boolean, default: false },
     quantity: { type: Number, required: true, min: 1 },
     unitPrice: { type: Number, required: true, min: 0 },
     priceModifier: { type: Number, default: 0 },
     finalPrice: { type: Number, required: true, min: 0 },
+    refundableLineAmountPaise: { type: Number, min: 0, default: undefined },
+    refundableUnitBasePaise: { type: Number, min: 0, default: undefined },
+    refundableUnitRemainderPaise: { type: Number, min: 0, default: undefined },
+    codAvailable: { type: Boolean, default: true },
+    codAdvanceAmount: { type: Number, default: 0, min: 0 },
     customNotes: { type: String, trim: true, default: "" },
     variantSku: { type: String, trim: true, default: "" }
     ,
@@ -77,6 +87,12 @@ const orderSchema = new mongoose.Schema(
       unique: true,
       index: true
     },
+    checkoutIdempotencyKey: {
+      type: String,
+      trim: true,
+      maxlength: 120
+    },
+    checkoutRequestFingerprint: { type: String, maxlength: 128 },
     items: {
       type: [orderItemSchema],
       required: true,
@@ -114,9 +130,19 @@ const orderSchema = new mongoose.Schema(
     advanceAmount: { type: Number, required: true, min: 0 },
     remainingAmount: { type: Number, required: true, min: 0 },
     totalAmount: { type: Number, required: true, min: 0 },
+    onlineAdvanceRequired: { type: Number, required: true, default: 0, min: 0 },
+    onlineAmountPaid: { type: Number, required: true, default: 0, min: 0 },
+    remainingCodDue: { type: Number, required: true, default: 0, min: 0 },
+    codAmountCollected: { type: Number, required: true, default: 0, min: 0 },
+    potentialCodAmount: { type: Number, required: true, default: 0, min: 0 },
+    codAdvancePayment: { type: mongoose.Schema.Types.ObjectId, ref: "Payment", default: null, index: true },
+    walletPayment: { type: mongoose.Schema.Types.ObjectId, ref: "WalletTransaction", default: null, index: true },
+    onlinePayment: { type: mongoose.Schema.Types.ObjectId, ref: "Payment", default: null, index: true },
+    codCollectedAt: { type: Date, default: null },
+    codCollectedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     paymentMethod: {
       type: String,
-      enum: ["COD"],
+      enum: ["COD", "ONLINE", "WALLET"],
       default: "COD"
     },
     paymentStatus: {
@@ -139,6 +165,33 @@ const orderSchema = new mongoose.Schema(
       ],
       default: "Pending"
     },
+    fulfillmentStatus: {
+      type: String,
+      enum: [
+        "NotStarted",
+        "DesignReview",
+        "Approved",
+        "Printing",
+        "QualityCheck",
+        "Packed",
+        "Shipped",
+        "Delivered",
+        "Returned"
+      ],
+      default: "NotStarted"
+    },
+    inventoryStatus: {
+      type: String,
+      enum: ["NotReserved", "Reserved", "Committed", "Released", "Restocked"],
+      default: "NotReserved"
+    },
+    inventoryReservedAt: { type: Date, default: null },
+    inventoryReservationExpiresAt: { type: Date, default: null },
+    refundStatus: {
+      type: String,
+      enum: ["None", "Requested", "Approved", "Processing", "PartiallyRefunded", "Refunded", "Failed"],
+      default: "None"
+    },
     trackingNumber: { type: String, trim: true, default: "" },
     courierName: { type: String, trim: true, default: "" },
     estimatedDeliveryDate: { type: Date, default: null },
@@ -156,5 +209,13 @@ const orderSchema = new mongoose.Schema(
 
 orderSchema.index({ user: 1, createdAt: -1 });
 orderSchema.index({ orderStatus: 1, createdAt: -1 });
+orderSchema.index({ paymentMethod: 1, paymentStatus: 1, inventoryStatus: 1, inventoryReservationExpiresAt: 1 });
+orderSchema.index(
+  { user: 1, checkoutIdempotencyKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { checkoutIdempotencyKey: { $type: "string" } }
+  }
+);
 
 export default mongoose.model("Order", orderSchema);

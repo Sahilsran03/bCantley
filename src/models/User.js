@@ -32,15 +32,16 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true
     },
+    googleId: { type: String, unique: true, sparse: true, immutable: true },
     phone: {
       type: String,
-      required: true,
+      required: function () { return !this.googleId; },
       trim: true,
       maxlength: 20
     },
     password: {
       type: String,
-      required: true,
+      required: function () { return !this.googleId; },
       select: false
     },
     role: {
@@ -109,11 +110,13 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.methods.comparePassword = function comparePassword(candidatePassword) {
+  if (!this.password) return Promise.resolve(false);
   return bcrypt.compare(candidatePassword, this.password);
 };
 
 userSchema.set("toJSON", {
   transform: (doc, ret) => {
+    delete ret.googleId;
     delete ret.password;
     delete ret.refreshToken;
     delete ret.__v;

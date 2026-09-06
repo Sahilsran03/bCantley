@@ -48,24 +48,26 @@ export const updateOrderShipping = asyncHandler(async (req, res) => {
 
 export const addTrackingUpdate = asyncHandler(async (req, res) => {
   const update = validateTrackingUpdateInput(req.body);
-  const order = await Order.findById(req.params.id);
+  const current = await Order.findById(req.params.id).select("orderStatus");
 
-  if (!order) throw new AppError("Order not found.", 404);
+  if (!current) throw new AppError("Order not found.", 404);
 
-  order.trackingHistory.push(update);
-  if (update.status === "Shipped" && !order.shippedAt) order.shippedAt = update.timestamp;
-  if (update.status === "Delivered") order.deliveredAt = update.timestamp;
-  await order.save();
+  const order = await Order.findOneAndUpdate(
+    { _id: req.params.id, orderStatus: current.orderStatus },
+    { $push: { trackingHistory: { ...update, status: current.orderStatus } } },
+    { new: true, runValidators: true }
+  );
+  if (!order) throw new AppError("Order status changed while adding the note. Please retry.", 409);
   await createNotification({
     user: order.user,
     title: "Tracking update",
-    message: update.message || `Your Cantley order tracking status is ${update.status}.`,
+    message: update.message,
     type: "SHIPPING",
     link: `/orders/${order._id}/tracking`
   });
   await sendTemplateEmail({
     to: order.shippingAddress.email,
-    template: emailTemplates.shippingUpdate({ orderNumber: order.orderNumber, status: update.status })
+    template: emailTemplates.shippingUpdate({ orderNumber: order.orderNumber, status: order.orderStatus })
   });
 
   res.status(200).json({ success: true, order });

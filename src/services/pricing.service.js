@@ -5,6 +5,7 @@ import { AppError } from "../utils/appError.js";
 const today = () => new Date();
 const roundMoney = (value) => Math.max(0, Math.round(Number(value || 0)));
 const idString = (value) => String(value?._id || value || "");
+const useSession = (query, session) => session && typeof query?.session === "function" ? query.session(session) : query;
 
 const isActiveWindow = (record) => {
   const now = today();
@@ -69,12 +70,12 @@ const calculateCouponDiscount = (coupon, items, subtotal, shippingFee) => {
   return roundMoney(Math.min(discountAmount, subtotal + shippingFee));
 };
 
-export const findValidCoupon = async (code) => {
+export const findValidCoupon = async (code, { session = null } = {}) => {
   const normalizedCode = String(code || "").trim().toUpperCase();
 
   if (!normalizedCode) return null;
 
-  const coupon = await Coupon.findOne({ code: normalizedCode });
+  const coupon = await useSession(Coupon.findOne({ code: normalizedCode }), session);
 
   if (!coupon || !isActiveWindow(coupon)) {
     throw new AppError("Coupon is invalid or expired.", 400);
@@ -87,8 +88,9 @@ export const findValidCoupon = async (code) => {
   return coupon;
 };
 
-export const getActiveOffers = async () => {
-  const offers = await Offer.find({ isActive: true }).sort({ createdAt: -1 });
+export const getActiveOffers = async ({ session = null } = {}) => {
+  const query = Offer.find({ isActive: true }).sort({ createdAt: -1 });
+  const offers = await useSession(query, session);
   return offers.filter(isActiveWindow);
 };
 
@@ -102,8 +104,8 @@ const appliesToOfferTarget = (offer, item) => {
   return true;
 };
 
-const calculateOfferDiscounts = async (items, subtotal) => {
-  const offers = await getActiveOffers();
+const calculateOfferDiscounts = async (items, subtotal, session = null) => {
+  const offers = await getActiveOffers({ session });
   const appliedOffers = [];
   let offerDiscount = 0;
 
@@ -162,13 +164,13 @@ const calculateOfferDiscounts = async (items, subtotal) => {
   };
 };
 
-export const calculateCartPricing = async (cart, couponCode = "") => {
+export const calculateCartPricing = async (cart, couponCode = "", { session = null } = {}) => {
   const items = getCartItems(cart);
   const subtotal = roundMoney(items.reduce((sum, item) => sum + itemLineTotal(item), 0));
   const shippingFee = 0;
   const itemCount = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-  const { offerDiscount, appliedOffers } = await calculateOfferDiscounts(items, subtotal);
-  const coupon = await findValidCoupon(couponCode);
+  const { offerDiscount, appliedOffers } = await calculateOfferDiscounts(items, subtotal, session);
+  const coupon = await findValidCoupon(couponCode, { session });
   const couponDiscount = coupon ? calculateCouponDiscount(coupon, items, Math.max(0, subtotal - offerDiscount), shippingFee) : 0;
   const discountAmount = roundMoney(Math.min(subtotal + shippingFee, offerDiscount + couponDiscount));
   const totalAmount = roundMoney(subtotal + shippingFee - discountAmount);
@@ -192,7 +194,11 @@ export const calculateCartPricing = async (cart, couponCode = "") => {
   };
 };
 
-export const incrementCouponUsage = async (code) => {
+export const incrementCouponUsage = async (code, { session = null } = {}) => {
   if (!code) return;
-  await Coupon.updateOne({ code: String(code).trim().toUpperCase() }, { $inc: { usedCount: 1 } });
+  await Coupon.updateOne(
+    { code: String(code).trim().toUpperCase() },
+    { $inc: { usedCount: 1 } },
+    session ? { session } : undefined
+  );
 };
